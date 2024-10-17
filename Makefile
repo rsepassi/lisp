@@ -1,11 +1,14 @@
-lisp: lisp.c
-	cc -o $@ lisp.c
+CFLAGS = -Wall -Werror -pedantic -std=c89 -static -nostdlib -fno-asynchronous-unwind-tables -fno-stack-protector
 
-lisp.o:
-	cc -o $@ -DNOMAIN -c lisp.c
+lisp: lisp.c
+	$(CC) -o $@ $(CFLAGS) $^
+	strip -s -R .comment $@
+
+lisp.o: lisp.c
+	$(CC) -o $@ -DNOMAIN $(CFLAGS) -c lisp.c
 
 liblisp.a: lisp.o
-	ar rcs liblisp.a $^
+	$(AR) rcs liblisp.a $^
 
 clean:
 	rm -f lisp liblisp.a lisp.o

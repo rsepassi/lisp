@@ -20,7 +20,7 @@ L parse(char **s);
 L eval(L expr, L env);
 void print(L x);
 
-/* Our only external dependency. */
+/* Our simple output mechanism. */
 int putchar(int);
 
 #ifndef NOMAIN
@@ -39,7 +39,54 @@ int main(int argc, char **argv) {
   }
   return 0;
 }
-#endif
+
+#if defined(__linux__) && defined(__x86_64__)
+/* Define our own _start and putchar so that we don't depend on libc.
+ * Note: These are Linux x86-64 specific.
+ */
+#define SYS_write 1
+#define SYS_exit 60
+#define stdout 1
+__attribute__((naked)) void _start(void) {
+  __asm__ (
+      "mov (%%rsp), %%rdi\n"   /* argc */
+      "lea 8(%%rsp), %%rsi\n"  /* argv */
+      "and $-16, %%rsp\n"      /* align stack to 16 bytes */
+      "call main\n"
+      "mov %%rax, %%rdi\n"     /* move return value to rdi for exit status */
+      "mov $%c0, %%rax\n"      /* SYS_exit */
+      "syscall\n"
+      "ret"                    /* unreachable */
+      : /* No outputs */
+      : "i" (SYS_exit)
+      : "rdi", "rsi", "rax"    /* clobbered registers */
+  );
+}
+void* syscall3(void* number, void* arg1, void* arg2, void* arg3) {
+  void* ret;
+  __asm__ (
+      "mov %1, %%rax\n"
+      "mov %2, %%rdi\n"
+      "mov %3, %%rsi\n"
+      "mov %4, %%rdx\n"
+      "syscall"
+      : "=a" (ret)
+      : "g" (number), "g" (arg1), "g" (arg2), "g" (arg3)
+      : "rcx", "r11", "memory"
+  );
+  return ret;
+}
+int putchar(int c) {
+  /* write(1, &c, 1); */
+  syscall3(
+      (void*)SYS_write,
+      (void*)stdout,
+      (void*)&c,
+      (void*)1);
+  return c;
+}
+#endif  /* __linux__ */
+#endif  /* NOMAIN */
 
 /* Implementation */
 /* ------------------------------------------------------------------------- */
