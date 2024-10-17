@@ -1,6 +1,6 @@
 /* A Lisp. */
 
-/* L, a Lisp value, represented as an int. */
+/* L, our Lisp value type. A value are represented as an int. */
 #define L int
 
 /* Our Lisp exports.
@@ -15,7 +15,7 @@
  * print:
  *   Prints a Lisp value. Expects putchar to be defined.
  */
-void init();
+void init(void);
 L parse(char **s);
 L eval(L expr, L env);
 void print(L x);
@@ -108,7 +108,7 @@ int putchar(int c) {
  *   primitive.
  * cell_next:
  *   Points to the current end of the CELL array.
- * genv:
+ * env_top:
  *   Top-level global environment. It initially contains only the primitives.
  *   Calls to define extend it.
  */
@@ -117,7 +117,7 @@ L CELL[1 << 20];
 char *atom_next;
 char *p_end;
 L *cell_next;
-L genv;
+L env_top;
 
 /* These are the delimiters used for parsing.
  *
@@ -297,16 +297,18 @@ void print_list(L list) {
     }
   }
 }
+void prints(char* s) {
+  for (; *s; ++s)
+    putchar(*s);
+}
 void print(L x) {
-  char *s;
   if (x == EOS)
     return;
   if (T(x) == T_nil) {
     putchar(LPAREN);
     putchar(RPAREN);
   } else if (T(x) == T_atom) {
-    for (s = atom_str(x); *s; ++s)
-      putchar(*s);
+    prints(atom_str(x));
   } else {
     putchar(LPAREN);
     print_list(x);
@@ -333,7 +335,7 @@ void print(L x) {
  *   the lambda's captured environment.
  *   Finally, we evaluate the lambda expression under its captured environment.
  */
-int isprimitive(L x) { return T(x) == T_atom && atom_str(x) < p_end; }
+int is_primitive(L x) { return T(x) == T_atom && atom_str(x) < p_end; }
 L apply_primitive(L op, L args, L env) {
   switch (op) {
   case P_t:
@@ -368,9 +370,9 @@ L env_get(L atom, L env) {
     return cdr(car(env));
   return nil;
 }
-L bind(L names, L vals, L tail) {
+L env_bind(L names, L vals, L tail) {
   return T(names) == T_nil    ? tail
-         : T(names) == T_cell ? bind(cdr(names), cdr(vals),
+         : T(names) == T_cell ? env_bind(cdr(names), cdr(vals),
                                      cons(cons(car(names), car(vals)), tail))
                               : cons(cons(names, vals), tail);
 }
@@ -388,18 +390,18 @@ L apply_lambda(L lambda, L args, L env) {
   fnenv = cdr(lambda);
   if (fnenv == nil)
     fnenv = env;
-  fnenv = bind(car(car(lambda)), args, fnenv);
+  fnenv = env_bind(car(car(lambda)), args, fnenv);
 
   return eval(car(cdr(car(lambda))), fnenv);
 }
 L apply(L op, L args, L env) {
-  return isprimitive(op) ? apply_primitive(op, args, env)
+  return is_primitive(op) ? apply_primitive(op, args, env)
                          : apply_lambda(op, args, env);
 }
 L eval(L expr, L env) {
   if (expr == EOS)
     return EOS;
-  env = env == 0 ? genv : env;
+  env = env == 0 ? env_top : env;
   return T(expr) == T_atom   ? env_get(expr, env)
          : T(expr) == T_cell ? apply(eval(car(expr), env), cdr(expr), env)
                              : nil;
@@ -487,30 +489,30 @@ L p_cond(L args, L env) {
 }
 L p_lambda(L args, L env) { return cons(args, env); }
 L p_define(L args, L env) {
-  genv = bind(car(args), eval(car(cdr(args)), env), genv);
+  env_top = env_bind(car(args), eval(car(cdr(args)), env), env_top);
   return car(args);
 }
 
 /* To avoid the dependency, we have our own strlen here. */
 long unsigned int strlen(const char *s) {
-  int i;
-  for (i = 0; *s; ++i, ++s)
+  const char *p;
+  for (p = s; *p; ++p)
     ;
-  return i;
+  return p - s;
 }
 
-void init() {
+void init(void) {
   L x;
   int i;
 
   atom_next = ATOM;
   cell_next = CELL;
-  genv = nil;
+  env_top = nil;
 
   /* Create atoms for the primitives and add them to the environment. */
   for (i = 0; i < NPRIMITIVES; ++i) {
     x = atom(PRIMITIVE[i], strlen(PRIMITIVE[i]));
-    genv = bind(x, x, genv);
+    env_top = env_bind(x, x, env_top);
   }
 
   p_end = atom_next;
