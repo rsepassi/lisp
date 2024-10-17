@@ -59,9 +59,3 @@
 (quote 1-bit-add)
 (1bitadd 0 1 0)
 (1bitadd 1 1 0)
-
-; TODO:
-; Binary unsigned integer addition + subtraction
-; Lisp in Lisp
-; C in Lisp
-; C in C
