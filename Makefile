@@ -1,4 +1,11 @@
-CFLAGS = -Wall -Werror -pedantic -std=c89 -static -nostdlib -fno-asynchronous-unwind-tables -fno-stack-protector
+CFLAGS = -Wall -Werror -pedantic -std=c89 -fno-asynchronous-unwind-tables -fno-stack-protector
+
+ifneq ($(OS),Windows_NT)
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S),Linux)
+	CFLAGS += -nostdlib -static
+endif
+endif
 
 lisp: lisp.c
 	$(CC) -o $@ $(CFLAGS) $^
