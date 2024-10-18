@@ -9,6 +9,5 @@ References, inspirations:
 * https://paulgraham.com/rootsoflisp.html
 
 Todo:
-* Binary unsigned integer addition + subtraction
 * Lisp in Lisp
 * C in Lisp

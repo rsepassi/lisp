@@ -84,6 +84,12 @@
 (1bitadd 0 1 0)
 (1bitadd 1 1 0)
 
+; (a b borrow) -> (sub borrow)
+(define 1bitsub (lambda (a b borrow)
+  (cons
+    (^ (^ a b) borrow)
+    (| (& (| (~ a) b) borrow) (& (~ a) b)))))
+
 (define 0x00 (quote (() () () () () () () ())))
 (define 0x01 (quote (#t () () () () () () ())))
 (define 0x02 (quote (() #t () () () () () ())))
@@ -341,27 +347,29 @@
 (define 0xfe (quote (() #t #t #t #t #t #t #t)))
 (define 0xff (quote (#t #t #t #t #t #t #t #t)))
 
-; n-bit add, little-endian (i.e. low-bits are first)
-(define bitadd-helper (lambda (c a b)
+; A parameterized circuit that ripples a carry/borrow through a binary
+; operation on equal-sized bit lists.
+(define bit-cascade (lambda (inner c a b)
   (cond
-    ; if a/b is nil, add a/b and c
-    ((nil? a)
-     (cond
-       ((nil? c) b)
-       (#t (bitadd 0 (cons c ()) b))))
-    ((nil? b)
-     (cond
-       ((nil? c) a)
-       (#t (bitadd 0 (cons c ()) a))))
+    ((or (nil? a) (nil? b)) nil)
     (#t
-    ; otherwise, we add the first bits
-    ; and recurse on the remainder
-    ((lambda (first-add)
-       (cons (car first-add) (bitadd-helper (cdr first-add) (cdr a) (cdr b)))
-     ) (1bitadd (car a) (car b) c))
+    ((lambda (first)
+       (cons (car first) (bit-cascade inner (cdr first) (cdr a) (cdr b))))
+     (inner (car a) (car b) c))
     )
   )))
-(define bitadd (lambda (a b)
-  (bitadd-helper 0 a b)))
 
-(listeq (bitadd 0xff 0xe3) (quote (() #t () () () #t #t #t #t)))
+(define bitadd (lambda (a b)
+  (bit-cascade 1bitadd 0 a b)))
+(define bitsub (lambda (a b)
+  (bit-cascade 1bitsub 0 a b)))
+
+(listeq (bitadd 0x10 0xaa) 0xba)
+(listeq (bitadd 0xff 0x01) 0x00)
+(listeq (bitsub 0xfa 0x0a) 0xf0)
+(listeq (bitsub 0x00 0x01) 0xff)
+
+(define u64 (lambda (b0 b1 b2 b3)
+  (append b0 (append b1 (append b2 b3)))))
+(listeq (bitadd (u64 0x01 0x00 0x00 0x00) (u64 0x00 0x00 0x00 0x01))
+        (u64 0x01 0x00 0x00 0x01))
