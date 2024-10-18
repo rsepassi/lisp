@@ -347,6 +347,8 @@
 (define 0xfe (quote (() #t #t #t #t #t #t #t)))
 (define 0xff (quote (#t #t #t #t #t #t #t #t)))
 
+(define biteq listeq)
+
 ; A parameterized circuit that ripples a carry/borrow through a binary
 ; operation on equal-sized bit lists.
 (define bit-cascade (lambda (inner c a b)
@@ -364,12 +366,35 @@
 (define bitsub (lambda (a b)
   (bit-cascade 1bitsub 0 a b)))
 
-(listeq (bitadd 0x10 0xaa) 0xba)
-(listeq (bitadd 0xff 0x01) 0x00)
-(listeq (bitsub 0xfa 0x0a) 0xf0)
-(listeq (bitsub 0x00 0x01) 0xff)
+(biteq (bitadd 0x10 0xaa) 0xba)
+(biteq (bitadd 0xff 0x01) 0x00)
+(biteq (bitsub 0xfa 0x0a) 0xf0)
+(biteq (bitsub 0x00 0x01) 0xff)
 
-(define u64 (lambda (b0 b1 b2 b3)
+(define u16 append)
+(define u16-0 (u16 0x00 0x00))
+(define u16-1 (u16 0x01 0x00))
+
+(define u32 (lambda (b0 b1 b2 b3)
   (append b0 (append b1 (append b2 b3)))))
-(listeq (bitadd (u64 0x01 0x00 0x00 0x00) (u64 0x00 0x00 0x00 0x01))
-        (u64 0x01 0x00 0x00 0x01))
+(define u32-0 (u32 0x00 0x00 0x00 0x00))
+(define u32-1 (u32 0x01 0x00 0x00 0x00))
+
+(biteq (bitadd (u32 0x01 0x00 0x00 0x00) (u32 0x00 0x00 0x00 0x01))
+       (u32 0x01 0x00 0x00 0x01))
+
+(define len8 (lambda (x)
+  (cond ((nil? x) 0x00)
+        (#t (bitadd 0x01 (len8 (cdr x)))))))
+
+(define len16 (lambda (x)
+  (cond ((nil? x) u16-0)
+        (#t (bitadd u16-1 (len16 (cdr x)))))))
+
+(define len32 (lambda (x)
+  (cond ((nil? x) u32-0)
+        (#t (bitadd u32-1 (len32 (cdr x)))))))
+
+(biteq (len8 (quote (1 2 3 4))) 0x04)
+(biteq (len16 (quote (1 2 3 4))) (u16 0x04 0x00))
+(biteq (len32 (quote (1 2 3 4))) (u32 0x04 0x00 0x00 0x00))
