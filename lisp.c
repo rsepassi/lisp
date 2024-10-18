@@ -1,6 +1,6 @@
 /* A Lisp. */
 
-/* L, our Lisp value type. A value are represented as an int. */
+/* L, our Lisp value type. A value is represented as an int. */
 #define L int
 
 /* Our Lisp exports.
