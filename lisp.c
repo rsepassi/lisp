@@ -137,7 +137,7 @@ L env_top;
 
 /* Lisp primitives.
  *
- * There are exactly 10 primitives plus nil.
+ * There are exactly 11 primitives plus nil.
  * These are the only predefined values in the language.
  *
  * Each is defined as an atom and has an associated function that is used for
@@ -172,6 +172,9 @@ L env_top;
  *   the current environment.
  * (define n x):
  *   Adds the name n to the global environment associated with value x.
+ * (tee tag ...):
+ *   To aid debugging, evaluates the remainder of the list as if tee and tag
+ *   weren't there, but also prints the tag and the evaluated output to stdout.
  */
 #define nil 0
 #define EOS 1 /* this is used internally to signify end-of-string */
@@ -185,7 +188,8 @@ L env_top;
 #define P_cond -31
 #define P_lambda -36
 #define P_define -43
-#define NPRIMITIVES 10
+#define P_tee -50
+#define NPRIMITIVES 11
 L p_t(L args, L env);
 L p_quote(L args, L env);
 L p_atom(L args, L env);
@@ -196,9 +200,11 @@ L p_cons(L args, L env);
 L p_cond(L args, L env);
 L p_lambda(L args, L env);
 L p_define(L args, L env);
-char *PRIMITIVE[10] = {
+L p_tee(L args, L env);
+char *PRIMITIVE[NPRIMITIVES] = {
     "#t",  "quote", "atom", "eq",     "car",
     "cdr", "cons",  "cond", "lambda", "define",
+    "tee",
 };
 
 /* Determines the type of a Lisp value. */
@@ -283,7 +289,16 @@ L atom(char *a, int len) {
  * atom -> its string representation
  * cell -> space-separated recursive print
  */
+void printl(L x) { print(x); putchar('\n'); }
+void prints(char* s) {
+  for (; *s; ++s)
+    putchar(*s);
+}
 void print_list(L list) {
+  if (list == env_top) {
+    prints("<env>");
+    return;
+  }
   while (list != nil) {
     /* A cell can contain an atom, nil, or another cell. */
     if (T(list) == T_cell) {
@@ -296,10 +311,6 @@ void print_list(L list) {
       break;
     }
   }
-}
-void prints(char* s) {
-  for (; *s; ++s)
-    putchar(*s);
 }
 void print(L x) {
   if (x == EOS)
@@ -358,6 +369,8 @@ L apply_primitive(L op, L args, L env) {
     return p_lambda(args, env);
   case P_define:
     return p_define(args, env);
+  case P_tee:
+    return p_tee(args, env);
   }
   return nil;
 }
@@ -491,6 +504,14 @@ L p_lambda(L args, L env) { return cons(args, env == env_top ? nil : env); }
 L p_define(L args, L env) {
   env_top = env_bind(car(args), eval(car(cdr(args)), env), env_top);
   return car(args);
+}
+L p_tee(L args, L env) {
+  L out;
+  out = eval(cdr(args), env);
+  prints(atom_str(car(args)));
+  prints(": ");
+  printl(out);
+  return out;
 }
 
 /* To avoid the dependency, we have our own strlen here. */
