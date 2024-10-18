@@ -389,7 +389,7 @@ L apply_lambda(L lambda, L args, L env) {
   /* lambda is structured as: (((parameters) expr) env) */
   fnenv = cdr(lambda);
   if (fnenv == nil)
-    fnenv = env;
+    fnenv = env_top;
   fnenv = env_bind(car(car(lambda)), args, fnenv);
 
   return eval(car(cdr(car(lambda))), fnenv);
@@ -487,7 +487,7 @@ L p_cond(L args, L env) {
     return nil;
   return eval(car(cdr(car(args))), env);
 }
-L p_lambda(L args, L env) { return cons(args, env); }
+L p_lambda(L args, L env) { return cons(args, env == env_top ? nil : env); }
 L p_define(L args, L env) {
   env_top = env_bind(car(args), eval(car(cdr(args)), env), env_top);
   return car(args);
